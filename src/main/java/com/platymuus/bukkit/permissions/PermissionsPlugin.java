@@ -29,45 +29,23 @@ public final class PermissionsPlugin extends JavaPlugin {
     private final PermissionsTabComplete tabCompleter = new PermissionsTabComplete(this);
     private final PermissionsMetrics metrics = new PermissionsMetrics(this);
 
-    private final HashMap<UUID, PermissionAttachment> permissions = new HashMap<UUID, PermissionAttachment>();
-
+    private final HashMap<UUID, PermissionAttachment> permissions = new HashMap<>();
+    public boolean configLoadError = false;
     private File configFile;
     private YamlConfiguration config;
+    private Field pField;
 
-    public boolean configLoadError = false;
+    // normally, LinkedHashMap.put (and thus putAll) will not reorder the list
+    // if that key is already in the map, which we don't want - later puts should
+    // always be bumped to the end of the list
+    private static <K, V> void put(Map<K, V> dest, K key, V value) {
+        dest.remove(key);
+        dest.put(key, value);
+    }
 
-    // -- Basic stuff
-    @Override
-    public void onEnable() {
-        // Take care of configuration
-        configFile = new File(getDataFolder(), "config.yml");
-        saveDefaultConfig();
-        reloadConfig();
-
-        // Register stuff
-        getCommand("permissions").setExecutor(commandExecutor);
-        getCommand("permissions").setTabCompleter(tabCompleter);
-        getServer().getPluginManager().registerEvents(playerListener, this);
-
-        // Register everyone online right now
-        for (Player p : getServer().getOnlinePlayers()) {
-            registerPlayer(p);
-        }
-
-        // Metrics are fun!
-        try {
-            metrics.start();
-        } catch (IOException ex) {
-            getLogger().warning("Failed to connect to plugin metrics: " + ex.getMessage());
-        }
-
-        // How are you gentlemen
-        int count = getServer().getOnlinePlayers().size();
-        if (count > 0) {
-            getLogger().info("Enabled successfully, " + count + " online players registered");
-        } else {
-            // "0 players registered" sounds too much like an error
-            getLogger().info("Enabled successfully");
+    private static <K, V> void putAll(Map<K, V> dest, Map<K, V> src) {
+        for (Map.Entry<K, V> entry : src.entrySet()) {
+            put(dest, entry.getKey(), entry.getValue());
         }
     }
 
@@ -86,7 +64,7 @@ public final class PermissionsPlugin extends JavaPlugin {
             configLoadError = true;
 
             // extract line numbers from the exception if we can
-            ArrayList<String> lines = new ArrayList<String>();
+            ArrayList<String> lines = new ArrayList<>();
             Pattern pattern = Pattern.compile("line (\\d+), column");
             Matcher matcher = pattern.matcher(ex.getMessage());
             while (matcher.find()) {
@@ -135,6 +113,8 @@ public final class PermissionsPlugin extends JavaPlugin {
         }
     }
 
+    // -- External API
+
     @Override
     public void saveConfig() {
         // If there's no keys (such as in the event of a load failure) don't save
@@ -161,7 +141,40 @@ public final class PermissionsPlugin extends JavaPlugin {
         }
     }
 
-    // -- External API
+    // -- Basic stuff
+    @Override
+    public void onEnable() {
+        // Take care of configuration
+        configFile = new File(getDataFolder(), "config.yml");
+        saveDefaultConfig();
+        reloadConfig();
+
+        // Register stuff
+        getCommand("permissions").setExecutor(commandExecutor);
+        getCommand("permissions").setTabCompleter(tabCompleter);
+        getServer().getPluginManager().registerEvents(playerListener, this);
+
+        // Register everyone online right now
+        for (Player p : getServer().getOnlinePlayers()) {
+            registerPlayer(p);
+        }
+
+        // Metrics are fun!
+        try {
+            metrics.start();
+        } catch (IOException ex) {
+            getLogger().warning("Failed to connect to plugin metrics: " + ex.getMessage());
+        }
+
+        // How are you gentlemen
+        int count = getServer().getOnlinePlayers().size();
+        if (count > 0) {
+            getLogger().info("Enabled successfully, " + count + " online players registered");
+        } else {
+            // "0 players registered" sounds too much like an error
+            getLogger().info("Enabled successfully");
+        }
+    }
 
     /**
      * Get the group with the given name.
@@ -191,7 +204,7 @@ public final class PermissionsPlugin extends JavaPlugin {
     @Deprecated
     public List<Group> getGroups(String playerName) {
         metrics.apiUsed();
-        ArrayList<Group> result = new ArrayList<Group>();
+        ArrayList<Group> result = new ArrayList<>();
         ConfigurationSection node = getUsernameNode(playerName);
         if (node != null) {
             for (String key : node.getStringList("groups")) {
@@ -211,7 +224,7 @@ public final class PermissionsPlugin extends JavaPlugin {
      */
     public List<Group> getGroups(UUID player) {
         metrics.apiUsed();
-        ArrayList<Group> result = new ArrayList<Group>();
+        ArrayList<Group> result = new ArrayList<>();
         if (getNode("users/" + player) != null) {
             for (String key : getNode("users/" + player).getStringList("groups")) {
                 result.add(new Group(this, key));
@@ -221,6 +234,8 @@ public final class PermissionsPlugin extends JavaPlugin {
         }
         return result;
     }
+
+    // -- Plugin stuff
 
     /**
      * Returns permission info on the given player.
@@ -262,7 +277,7 @@ public final class PermissionsPlugin extends JavaPlugin {
      */
     public List<Group> getAllGroups() {
         metrics.apiUsed();
-        ArrayList<Group> result = new ArrayList<Group>();
+        ArrayList<Group> result = new ArrayList<>();
         if (getNode("groups") != null) {
             for (String key : getNode("groups").getKeys(false)) {
                 result.add(new Group(this, key));
@@ -270,8 +285,6 @@ public final class PermissionsPlugin extends JavaPlugin {
         }
         return result;
     }
-
-    // -- Plugin stuff
 
     protected PermissionsMetrics getMetrics() {
         return metrics;
@@ -311,7 +324,9 @@ public final class PermissionsPlugin extends JavaPlugin {
     }
 
     private void fillChildGroups(HashSet<String> childGroups, String group) {
-        if (childGroups.contains(group)) return;
+        if (childGroups.contains(group)) {
+            return;
+        }
         childGroups.add(group);
 
         for (String key : getNode("groups").getKeys(false)) {
@@ -329,7 +344,7 @@ public final class PermissionsPlugin extends JavaPlugin {
         // build the set of groups which are children of "group"
         // e.g. if Bob is only a member of "expert" which inherits "user", he
         // must be updated if the permissions of "user" change
-        HashSet<String> childGroups = new HashSet<String>();
+        HashSet<String> childGroups = new HashSet<>();
         fillChildGroups(childGroups, group);
         debug("Refreshing for group " + group + " (total " + childGroups.size() + " subgroups)");
 
@@ -416,6 +431,8 @@ public final class PermissionsPlugin extends JavaPlugin {
         return sec;
     }
 
+    // -- Private stuff
+
     protected HashMap<String, Boolean> getAllPerms(String desc, String path) {
         ConfigurationSection node = getNode(path);
 
@@ -442,7 +459,7 @@ public final class PermissionsPlugin extends JavaPlugin {
             saveConfig();
         }
 
-        LinkedHashMap<String, Boolean> result = new LinkedHashMap<String, Boolean>();
+        LinkedHashMap<String, Boolean> result = new LinkedHashMap<>();
         // Do the actual getting of permissions
         for (String key : node.getKeys(false)) {
             if (node.isBoolean(key)) {
@@ -492,11 +509,6 @@ public final class PermissionsPlugin extends JavaPlugin {
         player.recalculatePermissions();
     }
 
-    // -- Private stuff
-
-    private Field pField;
-
-    @SuppressWarnings("unchecked")
     private Map<String, Boolean> reflectMap(PermissionAttachment attachment) {
         try {
             if (pField == null) {
@@ -509,20 +521,6 @@ public final class PermissionsPlugin extends JavaPlugin {
         }
     }
 
-    // normally, LinkedHashMap.put (and thus putAll) will not reorder the list
-    // if that key is already in the map, which we don't want - later puts should
-    // always be bumped to the end of the list
-    private <K, V> void put(Map<K, V> dest, K key, V value) {
-        dest.remove(key);
-        dest.put(key, value);
-    }
-
-    private <K, V> void putAll(Map<K, V> dest, Map<K, V> src) {
-        for (Map.Entry<K, V> entry : src.entrySet()) {
-            put(dest, entry.getKey(), entry.getValue());
-        }
-    }
-
     private Map<String, Boolean> calculatePlayerPermissions(Player player, String world) {
         ConfigurationSection node = getUserNode(player);
 
@@ -532,7 +530,7 @@ public final class PermissionsPlugin extends JavaPlugin {
         }
 
         String nodePath = node.getCurrentPath();
-        Map<String, Boolean> perms = new LinkedHashMap<String, Boolean>();
+        Map<String, Boolean> perms = new LinkedHashMap<>();
 
         // first, apply the player's groups (getStringList returns an empty list if not found)
         // later groups override earlier groups
@@ -554,7 +552,7 @@ public final class PermissionsPlugin extends JavaPlugin {
     }
 
     private Map<String, Boolean> calculateGroupPermissions(String group, String world) {
-        return calculateGroupPermissions0(new HashSet<String>(), group, world);
+        return calculateGroupPermissions0(new HashSet<>(), group, world);
     }
 
     private Map<String, Boolean> calculateGroupPermissions0(Set<String> recursionBuffer, String group, String world) {
@@ -562,11 +560,11 @@ public final class PermissionsPlugin extends JavaPlugin {
 
         // if the group's not in the config, nothing
         if (getNode(groupNode) == null) {
-            return new LinkedHashMap<String, Boolean>();
+            return new LinkedHashMap<>();
         }
 
         recursionBuffer.add(group);
-        Map<String, Boolean> perms = new LinkedHashMap<String, Boolean>();
+        Map<String, Boolean> perms = new LinkedHashMap<>();
 
         // first apply any parent groups (see calculatePlayerPermissions for more)
         for (String parent : getNode(groupNode).getStringList("inheritance")) {
@@ -590,5 +588,4 @@ public final class PermissionsPlugin extends JavaPlugin {
 
         return perms;
     }
-
 }

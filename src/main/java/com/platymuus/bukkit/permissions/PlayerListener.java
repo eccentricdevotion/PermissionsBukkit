@@ -90,5 +90,4 @@ final class PlayerListener implements Listener {
             player.sendMessage(message);
         }
     }
-
 }

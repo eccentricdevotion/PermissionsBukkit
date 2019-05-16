@@ -19,8 +19,8 @@ final class PermissionsTabComplete implements TabCompleter {
     private final List<String> GROUP_SUBS = ImmutableList.of("list", "players", "setperm", "unsetperm");
     private final List<String> PLAYER_SUBS = ImmutableList.of("setgroup", "addgroup", "removegroup", "setperm", "unsetperm");
 
-    private final HashSet<Permission> permSet = new HashSet<Permission>();
-    private final ArrayList<String> permList = new ArrayList<String>();
+    private final HashSet<Permission> permSet = new HashSet<>();
+    private final ArrayList<String> permList = new ArrayList<>();
 
     private final PermissionsPlugin plugin;
 
@@ -28,6 +28,11 @@ final class PermissionsTabComplete implements TabCompleter {
         this.plugin = plugin;
     }
 
+    private static List<String> partial(String token, Collection<String> from) {
+        return StringUtil.copyPartialMatches(token, from, new ArrayList<>(from.size()));
+    }
+
+    @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         // Remember that we can return null to default to online player name matching
 
@@ -123,7 +128,7 @@ final class PermissionsTabComplete implements TabCompleter {
          */
 
         // A convenience in case I later want to replace online players with something else
-        final List<String> players = null;
+        List<String> players = null;
 
         if (sub.equals("groups")) {
             if (args.length == 3) {
@@ -141,7 +146,7 @@ final class PermissionsTabComplete implements TabCompleter {
                     String done = lastArg.substring(0, idx + 1); // includes the comma
                     String toComplete = lastArg.substring(idx + 1);
                     List<String> groups = partial(toComplete, allGroups());
-                    List<String> result = new ArrayList<String>(groups.size());
+                    List<String> result = new ArrayList<>(groups.size());
                     for (String group : groups) {
                         result.add(done + group);
                     }
@@ -197,9 +202,4 @@ final class PermissionsTabComplete implements TabCompleter {
         // TODO: complete [world:]node
         return partial(token, allNodes());
     }
-
-    private List<String> partial(String token, Collection<String> from) {
-        return StringUtil.copyPartialMatches(token, from, new ArrayList<String>(from.size()));
-    }
-
 }

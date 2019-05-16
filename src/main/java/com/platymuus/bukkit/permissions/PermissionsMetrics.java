@@ -16,13 +16,11 @@ import java.util.Set;
 final class PermissionsMetrics {
 
     private final PermissionsPlugin plugin;
-
+    public boolean enabled = false;
     private Metrics metrics;
     private Metrics.Graph featuresUsed;
     private Metrics.Graph usage;
-
     private boolean apiUsed = false;
-    public boolean enabled = false;
 
     public PermissionsMetrics(PermissionsPlugin plugin) {
         this.plugin = plugin;
@@ -32,7 +30,9 @@ final class PermissionsMetrics {
         metrics = new Metrics(plugin);
 
         // don't bother with the rest if it's off
-        if (metrics.isOptOut()) return;
+        if (metrics.isOptOut()) {
+            return;
+        }
 
         setupFeaturesUsed();
         setupUsage();
@@ -44,7 +44,7 @@ final class PermissionsMetrics {
     public HashMap<String, String> summarize(int type) {
         Metrics.Graph graph = type == 0 ? featuresUsed : usage;
 
-        HashMap<String, String> result = new HashMap<String, String>();
+        HashMap<String, String> result = new HashMap<>();
         for (Metrics.Plotter plotter : graph.getPlotters()) {
             String value;
             if (plotter instanceof BooleanPlotter) {
@@ -79,7 +79,9 @@ final class PermissionsMetrics {
             @Override
             protected boolean value() {
                 ConfigurationSection sec = getSection("users");
-                if (sec == null) return false;
+                if (sec == null) {
+                    return false;
+                }
 
                 for (String key : sec.getKeys(false)) {
                     if (!key.equalsIgnoreCase("ConspiracyWizard") && (sec.isConfigurationSection(key + "/permissions") || sec.isConfigurationSection(key + "/worlds"))) {
@@ -98,7 +100,9 @@ final class PermissionsMetrics {
             }
 
             private boolean found(ConfigurationSection section) {
-                if (section == null) return false;
+                if (section == null) {
+                    return false;
+                }
 
                 for (String key : section.getKeys(false)) {
                     if (section.isConfigurationSection(key + "/worlds")) {
@@ -145,10 +149,14 @@ final class PermissionsMetrics {
             @Override
             protected boolean value() {
                 ConfigurationSection sec = getSection("groups");
-                if (sec == null) return false;
+                if (sec == null) {
+                    return false;
+                }
 
                 ConfigurationSection def = sec.getConfigurationSection("default");
-                if (def == null) return false;
+                if (def == null) {
+                    return false;
+                }
 
                 ConfigurationSection perms = sec.getConfigurationSection("permissions");
                 return perms != null && perms.isBoolean("permissions.build") && !perms.getBoolean("permissions.build");
@@ -162,7 +170,6 @@ final class PermissionsMetrics {
                 // Note that this doesn't help if permissions.yml is in a nonstandard place, but c'est la vie
                 File file = new File("permissions.yml");
                 return file.isFile() && file.length() > 5;
-
             }
         });
 
@@ -194,7 +201,9 @@ final class PermissionsMetrics {
 
     private boolean antiBuildEnabled() {
         ConfigurationSection section = getSection("groups");
-        if (section == null) return false;
+        if (section == null) {
+            return false;
+        }
 
         // check each group
         for (String key : section.getKeys(false)) {
@@ -256,7 +265,9 @@ final class PermissionsMetrics {
             }
 
             private int count(ConfigurationSection section) {
-                if (section == null) return 0;
+                if (section == null) {
+                    return 0;
+                }
 
                 int total = 0;
                 for (String key : section.getKeys(false)) {
@@ -284,14 +295,16 @@ final class PermissionsMetrics {
         graph.addPlotter(new Metrics.Plotter("Permission Roots") {
             @Override
             public int getValue() {
-                Set<String> roots = new HashSet<String>();
+                Set<String> roots = new HashSet<>();
                 fill(roots, getSection("groups"));
                 fill(roots, getSection("users"));
                 return roots.size();
             }
 
             private void fill(Set<String> results, ConfigurationSection section) {
-                if (section == null) return;
+                if (section == null) {
+                    return;
+                }
 
                 for (String key : section.getKeys(false)) {
                     if (section.isConfigurationSection(key)) {
@@ -324,14 +337,16 @@ final class PermissionsMetrics {
         graph.addPlotter(new Metrics.Plotter("Worlds") {
             @Override
             public int getValue() {
-                Set<String> worlds = new HashSet<String>();
+                Set<String> worlds = new HashSet<>();
                 fill(worlds, getSection("groups"));
                 fill(worlds, getSection("users"));
                 return worlds.size();
             }
 
             private void fill(Set<String> results, ConfigurationSection section) {
-                if (section == null) return;
+                if (section == null) {
+                    return;
+                }
 
                 for (String key : section.getKeys(false)) {
                     if (section.isConfigurationSection(key)) {
@@ -347,6 +362,7 @@ final class PermissionsMetrics {
     }
 
     private abstract static class BooleanPlotter extends Metrics.Plotter {
+
         protected BooleanPlotter(String name) {
             super(name);
         }
